@@ -10,5 +10,6 @@ namespace Anno.EasyMod.Metadata
     {
         public bool TryLoadFromFile(string filePath, out Modinfo? modinfo, bool autofix = false);
         public Modinfo GetDummy(String name);
+        public Modinfo GetModio(Modio.Models.Mod mod);
     }
 }

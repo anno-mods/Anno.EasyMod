@@ -46,21 +46,6 @@ namespace Anno.EasyMod.Mods.LocalMods
 
             string[] modinfos = Directory.GetFiles(Path.Combine(basePath, folder), "modinfo.json", SearchOption.AllDirectories);
 
-            /*
-            if (loadImages)
-            {
-                var imagepath = Path.Combine(mod.FullModPath, "banner.jpg");
-                if (File.Exists(imagepath))
-                    mod.InitImageAsFilepath(Path.Combine(imagepath));
-                else
-                {
-                    imagepath = Path.Combine(mod.FullModPath, "banner.png");
-                    if (File.Exists(imagepath))
-                        mod.InitImageAsFilepath(Path.Combine(imagepath));
-                }
-            }
-            */
-
             if (modinfos.Length > 1)
             {
                 foreach (var submodinfo in modinfos)

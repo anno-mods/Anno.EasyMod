@@ -20,7 +20,7 @@ namespace Anno.EasyMod.Mods.LocalMods
         public int InstalledSizeInMBs { get; private set; }
         #endregion
 
-        public event NotifyCollectionChangedEventHandler? CollectionChanged;
+        public event NotifyCollectionChangedEventHandler? CollectionChanged = delegate { };
 
         public string ModsPath { get; internal set; }
 
@@ -51,12 +51,13 @@ namespace Anno.EasyMod.Mods.LocalMods
             _mods = mods;
             _logger = logger;
             _modFactory = modFactory;
+            OnActivationChanged(null);
         }
 
         #region Validation
         public void ThrowIfDoesNotContain(LocalMod mod)
         {
-            if (Mods.Contains(mod))
+            if (!Mods.Contains(mod))
                 throw new InvalidOperationException("Collection cannot change mods that are not in it.");
         }
 
@@ -207,7 +208,7 @@ namespace Anno.EasyMod.Mods.LocalMods
             "Use AddAsync instead and clean the source mod directory up by yourself! Only adding this so iMYA can respect that later.")]
         public async Task MoveIntoAsync(IModCollection<LocalMod> source, bool allowOldToOverwrite, CancellationToken ct = default)
         {
-            await AddAsync(source, allowOldToOverwrite, ct);
+            await AddAsync(source.Mods, allowOldToOverwrite, ct);
             Directory.Delete(source.ModsPath, true);
             _logger.LogDebug($"Removed Directory: {source.ModsPath}");
         }
@@ -334,7 +335,7 @@ namespace Anno.EasyMod.Mods.LocalMods
 
         #region IReadOnlyCollection
         public int Count => Mods.Count;
-        public IEnumerator<LocalMod> GetEnumerator() => Mods.GetEnumerator();
+        public IEnumerator<IMod> GetEnumerator() => Mods.GetEnumerator();
         IEnumerator IEnumerable.GetEnumerator() => Mods.GetEnumerator();
         #endregion
 

@@ -4,6 +4,7 @@ using PropertyChanged;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Text;
@@ -12,7 +13,9 @@ using System.Threading.Tasks;
 namespace Anno.EasyMod.Mods.LocalMods
 {
     enum LocalModStatus { Default, New, Updated, Obsolete }
+
     [AddINotifyPropertyChangedInterface]
+    [DebuggerDisplay("Local | Name: {Name}")]
     public class LocalMod : IMod
     {
         public String ModID => Modinfo.ModID ?? FolderName;
@@ -27,7 +30,7 @@ namespace Anno.EasyMod.Mods.LocalMods
         [DoNotNotify]
         public float SizeInMB { get; private set; }
 
-        public string Name { get; private set; }
+        public string Name { get => Modinfo.ModName?.English!; }
 
         [DoNotNotify]
         public string[] Tags { get; set; }

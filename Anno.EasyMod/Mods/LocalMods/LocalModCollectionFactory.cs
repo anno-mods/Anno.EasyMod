@@ -10,11 +10,11 @@ using System.Threading.Tasks;
 
 namespace Anno.EasyMod.Mods.LocalMods
 {
-    public class LocalModCollectionFactory
+    public class LocalModCollectionFactory : ILocalModCollectionFactory
     {
-        bool AutofixSubfolder = false; 
+        bool AutofixSubfolder = false;
 
-        private IModFactory<LocalMod> _modFactory; 
+        private IModFactory<LocalMod> _modFactory;
         IServiceProvider _serviceProvider;
 
         public LocalModCollectionFactory(
@@ -27,12 +27,12 @@ namespace Anno.EasyMod.Mods.LocalMods
 
         public LocalModCollection Get(string Filepath)
         {
-            return GetAsync(Filepath).Result;    
+            return GetAsync(Filepath).Result;
         }
 
         public async Task<LocalModCollection> GetAsync(string Filepath)
         {
-            List<LocalMod> loadedMods = new(); 
+            List<LocalMod> loadedMods = new();
             await Task.Run(() => loadedMods = LoadMods(Filepath));
             var collection = new LocalModCollection(
                 _serviceProvider.GetRequiredService<IModFactory<LocalMod>>(),
@@ -41,12 +41,12 @@ namespace Anno.EasyMod.Mods.LocalMods
             {
                 ModsPath = Filepath
             };
-            return collection; 
+            return collection;
         }
 
         public List<LocalMod> LoadMods(String modsPath)
         {
-            List<LocalMod> mods = new(); 
+            List<LocalMod> mods = new();
             if (Directory.Exists(modsPath))
             {
                 if (AutofixSubfolder)
@@ -62,7 +62,7 @@ namespace Anno.EasyMod.Mods.LocalMods
             {
                 mods = new();
             }
-            return mods; 
+            return mods;
         }
 
         private static void AutofixSubfolders(string modsPath)

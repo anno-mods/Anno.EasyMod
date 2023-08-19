@@ -10,27 +10,28 @@ using System.Threading.Tasks;
 
 namespace Anno.EasyMod.Mods.ModioMods
 {
-    internal class ModioModCollection : IModCollection<ModioMod>
+    public class ModioModCollection : IModCollection<ModioMod>
     {
-        public int ActiveMods => throw new NotImplementedException();
-        public int ActiveSizeInMBs => throw new NotImplementedException();
-        public int InstalledSizeInMBs => throw new NotImplementedException();
+        public int ActiveMods { get => Mods.Count; }
+        public int ActiveSizeInMBs { get => (int)Mods.Select(x => x.SizeInMB).Aggregate((x, y) => x + y); }
+        public int InstalledSizeInMBs { get => ActiveSizeInMBs;}
 
-        public IEnumerable<string> ModIDs => throw new NotImplementedException();
+        public IEnumerable<string> ModIDs => Mods.Select(x => x.ModID);
         public IReadOnlyList<ModioMod> Mods { get => _mods; }
         private List<ModioMod> _mods;
 
         public string ModsPath => throw new NotImplementedException();
-        public int Count => throw new NotImplementedException();
+        public int Count { get => Mods.Count; }
 
         private Modio.Client _client; 
 
         public ModioModCollection(Modio.Client client) 
         {
             _client = client; 
+            _mods = new List<ModioMod>();
         }
 
-        public event NotifyCollectionChangedEventHandler? CollectionChanged;
+        public event NotifyCollectionChangedEventHandler? CollectionChanged = delegate { };
 
         public async Task AddAsync(IEnumerable<ModioMod> mods, bool allowOldToOverwrite = false, CancellationToken ct = default)
         {
@@ -75,7 +76,7 @@ namespace Anno.EasyMod.Mods.ModioMods
 
         public async Task MoveIntoAsync(IModCollection<ModioMod> source, bool allowOldToOverwrite = false, CancellationToken ct = default)
         {
-            await AddAsync(source, allowOldToOverwrite, ct);
+            await AddAsync(source.Mods, allowOldToOverwrite, ct);
         }
 
         public async Task RemoveAsync(IEnumerable<ModioMod> mods, CancellationToken ct = default)
@@ -100,6 +101,6 @@ namespace Anno.EasyMod.Mods.ModioMods
         }
 
         IEnumerator IEnumerable.GetEnumerator() => Mods.GetEnumerator();
-        public IEnumerator<ModioMod> GetEnumerator() => Mods.GetEnumerator();
+        public IEnumerator<IMod> GetEnumerator() => Mods.GetEnumerator();
     }
 }

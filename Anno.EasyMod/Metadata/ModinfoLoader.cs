@@ -94,5 +94,14 @@ namespace Anno.EasyMod.Metadata
         {
             throw new NotImplementedException();
         }
+
+        public Modinfo GetModio(Modio.Models.Mod mod)
+        {
+            return new Modinfo()
+            {
+                ModID = mod.Id.ToString(),
+                CreatorName = mod.SubmittedBy?.Username
+            };
+        }
     }
 }
