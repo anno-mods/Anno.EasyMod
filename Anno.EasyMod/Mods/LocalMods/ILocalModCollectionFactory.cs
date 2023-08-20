@@ -2,7 +2,7 @@
 {
     public interface ILocalModCollectionFactory
     {
-        LocalModCollection Get(string Filepath);
-        Task<LocalModCollection> GetAsync(string Filepath);
+        IModCollection Get(string Filepath);
+        Task<IModCollection> GetAsync(string Filepath);
     }
 }

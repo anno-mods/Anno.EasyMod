@@ -2,6 +2,7 @@
 using Anno.EasyMod.Mods;
 using Anno.EasyMod.Mods.LocalMods;
 using Anno.EasyMod.Mods.ModioMods;
+using Anno.EasyMod.Utils;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Anno.EasyMod.DI
@@ -14,12 +15,16 @@ namespace Anno.EasyMod.DI
 
             services.AddScoped<IModFactory<LocalMod>, LocalModFactory>();
             services.AddScoped<ILocalModCollectionFactory, LocalModCollectionFactory>();
-            services.AddScoped<IModioModFactory, ModioModFactory>();
-            services.AddScoped<IModioModCollectionFactory, ModioModCollectionFactory>();
+            services.AddTransient<CollectionBuilder>(sp => new CollectionBuilder(
+                    sp.GetRequiredService<ILocalModCollectionFactory>(),
+                    sp.GetService<IModioModCollectionFactory>()
+                ));
         }
 
         public static void ConfigureModio(this IServiceCollection services, Modio.Client client)
         {
+            services.AddScoped<IModioModFactory, ModioModFactory>();
+            services.AddScoped<IModioModCollectionFactory, ModioModCollectionFactory>();
             services.AddSingleton<Modio.Client>(client);
         }
     }

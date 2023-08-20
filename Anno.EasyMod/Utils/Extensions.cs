@@ -6,12 +6,12 @@ using System.Threading.Tasks;
 
 namespace Anno.EasyMod.Utils
 {
-    public static class VersionEx
+    internal static class VersionEx
     {
         /// <summary>
         /// Append ".0" in case of one number versions before parsing it.
         /// </summary>
-        public static bool TryParse(string? input, out Version? result)
+        internal static bool TryParse(string? input, out Version? result)
         {
             if (input is not null && !input.Contains('.'))
                 input += ".0";
@@ -19,12 +19,12 @@ namespace Anno.EasyMod.Utils
         }
     }
 
-    public static class DirectoryEx
+    internal static class DirectoryEx
     {
         /// <summary>
         /// Delete target folder before moving.
         /// </summary>
-        public static void CleanMove(string source, string target)
+        internal static void CleanMove(string source, string target)
         {
             if (Directory.Exists(target))
                 Directory.Delete(target, true);
@@ -34,7 +34,7 @@ namespace Anno.EasyMod.Utils
         /// <summary>
         /// Recursively copy a folder.
         /// </summary>
-        public static void Copy(string source, string target)
+        internal static void Copy(string source, string target)
         {
             if (!Directory.Exists(target))
                 Directory.CreateDirectory(target);
@@ -47,7 +47,7 @@ namespace Anno.EasyMod.Utils
         /// <summary>
         /// Delete target folder before recursively copying source into it.
         /// </summary>
-        public static void CleanCopy(string source, string target)
+        internal static void CleanCopy(string source, string target)
         {
             if (Directory.Exists(target))
                 Directory.Delete(target, true);
@@ -57,7 +57,7 @@ namespace Anno.EasyMod.Utils
         /// <summary>
         /// Delete folder if it exists.
         /// </summary>
-        public static void EnsureDeleted(string path)
+        internal static void EnsureDeleted(string path)
         {
             if (Directory.Exists(path))
                 Directory.Delete(path, true);
@@ -66,7 +66,7 @@ namespace Anno.EasyMod.Utils
         /// <summary>
         /// Delete folder if it exists. No Exceptions
         /// </summary>
-        public static bool TryDelete(string path)
+        internal static bool TryDelete(string path)
         {
             try
             {
@@ -83,7 +83,7 @@ namespace Anno.EasyMod.Utils
         /// <summary>
         /// Find paths with a folder name.
         /// </summary>
-        public static IEnumerable<string> FindFolder(string path, string folderName)
+        internal static IEnumerable<string> FindFolder(string path, string folderName)
         {
             List<string> result = new();
             Queue<string> queue = new(Directory.EnumerateDirectories(path));
@@ -104,9 +104,9 @@ namespace Anno.EasyMod.Utils
         }
     }
 
-    public static class CollectionExtension
+    internal static class CollectionExtension
     {
-        public static IEnumerable<TResult> SelectNoNull<TSource, TResult>(this IEnumerable<TSource> source, Func<TSource, TResult?> selector) where TResult : class
+        internal static IEnumerable<TResult> SelectNoNull<TSource, TResult>(this IEnumerable<TSource> source, Func<TSource, TResult?> selector) where TResult : class
         {
             return source.Select(selector).Where(x => x is not null).Select(x => x!);
         }

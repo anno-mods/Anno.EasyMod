@@ -1,4 +1,5 @@
-﻿using Anno.EasyMod.Metadata;
+﻿using Anno.EasyMod.Attributes;
+using Anno.EasyMod.Metadata;
 using Anno.EasyMod.Utils;
 using Microsoft.Extensions.Logging;
 using System;
@@ -42,7 +43,10 @@ namespace Anno.EasyMod.Mods.LocalMods
                 isActive,
                 folderName,
                 modinfo!,
-                basePath);
+                basePath)
+            {
+                Image = new Uri(Path.Combine(modFolderPath, "banner.jpg"))
+            };
 
             string[] modinfos = Directory.GetFiles(Path.Combine(basePath, folder), "modinfo.json", SearchOption.AllDirectories);
 

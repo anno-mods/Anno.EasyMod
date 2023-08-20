@@ -1,4 +1,5 @@
-﻿using Anno.EasyMod.Utils;
+﻿using Anno.EasyMod.Mods.LocalMods;
+using Anno.EasyMod.Utils;
 using Microsoft.Extensions.Logging;
 using PropertyChanged;
 using System;
@@ -12,7 +13,7 @@ using System.Threading.Tasks;
 namespace Anno.EasyMod.Mods.LocalMods
 {
     [AddINotifyPropertyChangedInterface]
-    public class LocalModCollection : IModCollection<LocalMod>
+    public class LocalModCollection : IModCollection
     {
         #region UI related
         public int ActiveMods { get; private set; }
@@ -24,14 +25,14 @@ namespace Anno.EasyMod.Mods.LocalMods
 
         public string ModsPath { get; internal set; }
 
-        public IReadOnlyList<LocalMod> Mods { get => _mods; }
-        private List<LocalMod> _mods;
+        public IReadOnlyList<IMod> Mods { get => _mods; }
+        private List<IMod> _mods;
 
         [DoNotNotify]
         public IEnumerable<string> ModIDs { get => _modids; }
         private List<string> _modids = new();
 
-        private ILogger<LocalModCollection> _logger;
+        private ILogger<IModCollection> _logger;
         private IModFactory<LocalMod> _modFactory;
 
         /// <summary>
@@ -44,8 +45,8 @@ namespace Anno.EasyMod.Mods.LocalMods
         /// <param name="autofixSubfolder">find data/ in subfolder and move up</param>
         internal LocalModCollection(
             IModFactory<LocalMod> modFactory,
-            ILogger<LocalModCollection> logger,
-            List<LocalMod> mods)
+            ILogger<IModCollection> logger,
+            List<IMod> mods)
         {
             ModsPath = "";
             _mods = mods;
@@ -55,24 +56,30 @@ namespace Anno.EasyMod.Mods.LocalMods
         }
 
         #region Validation
-        public void ThrowIfDoesNotContain(LocalMod mod)
+        private void ThrowIfDoesNotContain(IMod mod)
         {
             if (!Mods.Contains(mod))
                 throw new InvalidOperationException("Collection cannot change mods that are not in it.");
         }
 
-        public void ThrowIfDoesNotContain(IEnumerable<LocalMod> mods)
+        private void ThrowIfDoesNotContain(IEnumerable<IMod> mods)
         {
             if (mods.Any(x => !Mods.Contains(x)))
             {
                 throw new InvalidOperationException("Collection cannot change mods that are not in it.");
             }
         }
+
+        private void ThrowIfNotLocalMod(IMod mod)
+        {
+            if (mod is not LocalMod)
+                throw new ArgumentException($"Invalid Type for LocalModCollection. Expected: {typeof(LocalMod).FullName}. Actual: {mod.GetType().FullName}");
+        }
         #endregion
 
 
         #region Change Activation
-        public async Task ChangeActivationAsync(IEnumerable<LocalMod> mods, bool active, CancellationToken ct = default)
+        public async Task ChangeActivationAsync(IEnumerable<IMod> mods, bool active, CancellationToken ct = default)
         {
             ThrowIfDoesNotContain(mods);
 
@@ -84,14 +91,14 @@ namespace Anno.EasyMod.Mods.LocalMods
             OnActivationChanged(null);
         }
 
-        public async Task ChangeActivationAsync(LocalMod mod, bool active, CancellationToken ct = default)
+        public async Task ChangeActivationAsync(IMod mod, bool active, CancellationToken ct = default)
         {
             ThrowIfDoesNotContain(mod);
             await ChangeActivationAsync_NoEvents(mod, active, ct);
             OnActivationChanged(mod);
         }
 
-        private async Task ChangeActivationAsync_NoEvents(LocalMod mod, bool active, CancellationToken ct = default)
+        private async Task ChangeActivationAsync_NoEvents(IMod mod, bool active, CancellationToken ct = default)
         {
             ThrowIfDoesNotContain(mod);
             if (mod.IsActive == active || mod.IsRemoved)
@@ -131,7 +138,7 @@ namespace Anno.EasyMod.Mods.LocalMods
             }, ct);
         }
 
-        private void OnActivationChanged(LocalMod? sender)
+        private void OnActivationChanged(IMod? sender)
         {
             // remove mods with IssueModRemoved attribute
             int removedModCount = Mods.Count(x => x.IsRemoved);
@@ -154,7 +161,7 @@ namespace Anno.EasyMod.Mods.LocalMods
         #endregion
 
         #region Remove
-        public async Task RemoveAsync(IEnumerable<LocalMod> mods, CancellationToken ct = default)
+        public async Task RemoveAsync(IEnumerable<IMod> mods, CancellationToken ct = default)
         {
             ThrowIfDoesNotContain(mods);
 
@@ -166,13 +173,13 @@ namespace Anno.EasyMod.Mods.LocalMods
             CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Remove, deleted));
         }
 
-        public async Task RemoveAsync(LocalMod mod, CancellationToken ct = default)
+        public async Task RemoveAsync(IMod mod, CancellationToken ct = default)
         {
             await RemoveAsync_NoEvents(mod, ct);
             CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Remove, mod));
         }
 
-        private async Task RemoveAsync_NoEvents(LocalMod mod, CancellationToken ct = default)
+        private async Task RemoveAsync_NoEvents(IMod mod, CancellationToken ct = default)
         {
             await Task.Run(() =>
             {
@@ -196,7 +203,7 @@ namespace Anno.EasyMod.Mods.LocalMods
         }
         #endregion
 
-        public async Task MakeObsoleteAsync(LocalMod mod, string path, CancellationToken ct = default)
+        public async Task MakeObsoleteAsync(IMod mod, string path, CancellationToken ct = default)
         {
             ThrowIfDoesNotContain(mod);
             await ChangeActivationAsync_NoEvents(mod, false);
@@ -206,14 +213,14 @@ namespace Anno.EasyMod.Mods.LocalMods
 
         [Obsolete("This Method is dangerous and not supported." +
             "Use AddAsync instead and clean the source mod directory up by yourself! Only adding this so iMYA can respect that later.")]
-        public async Task MoveIntoAsync(IModCollection<LocalMod> source, bool allowOldToOverwrite, CancellationToken ct = default)
+        public async Task MoveIntoAsync(IModCollection source, bool allowOldToOverwrite, CancellationToken ct = default)
         {
             await AddAsync(source.Mods, allowOldToOverwrite, ct);
             Directory.Delete(source.ModsPath, true);
             _logger.LogDebug($"Removed Directory: {source.ModsPath}");
         }
 
-        public async Task AddAsync(IEnumerable<LocalMod> source, bool allowOldToOverwrite, CancellationToken ct = default)
+        public async Task AddAsync(IEnumerable<IMod> source, bool allowOldToOverwrite, CancellationToken ct = default)
         {
             Directory.CreateDirectory(ModsPath);
 
@@ -234,7 +241,7 @@ namespace Anno.EasyMod.Mods.LocalMods
             CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, source.ToList()));
         }
 
-        public async Task AddAsync(LocalMod sourceMod, bool allowOldToOverwrite, CancellationToken ct = default)
+        public async Task AddAsync(IMod sourceMod, bool allowOldToOverwrite, CancellationToken ct = default)
         {
             try {
 
@@ -253,7 +260,7 @@ namespace Anno.EasyMod.Mods.LocalMods
             CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, sourceMod));
         }
 
-        private async Task AddAsync_NoEvents(LocalMod sourceMod, bool allowOldToOverwrite, CancellationToken ct = default)
+        private async Task AddAsync_NoEvents(IMod sourceMod, bool allowOldToOverwrite, CancellationToken ct = default)
         {
             var (targetMod, targetModPath) = SelectTargetMod(sourceMod);
 
@@ -265,12 +272,14 @@ namespace Anno.EasyMod.Mods.LocalMods
 
             // do it!
             var status = Directory.Exists(targetModPath) ? LocalModStatus.Updated : LocalModStatus.New;
-            DirectoryEx.CleanMove(sourceMod.FullModPath, targetModPath);
+
+            if(sourceMod.FullModPath != targetModPath)
+                DirectoryEx.CleanMove(sourceMod.FullModPath, targetModPath);
 
             // mark all duplicate id mods as obsolete
             if (sourceMod.Modinfo.ModID != null)
             {
-                var sameModIDs = WhereByModID(sourceMod.Modinfo.ModID).Where(x => x != targetMod);
+                var sameModIDs = WithID(sourceMod.Modinfo.ModID).Where(x => x != targetMod);
                 foreach (var mod in sameModIDs)
                     await MakeObsoleteAsync(mod, ModsPath);
                 // mark mod as updated, since there was the same modid already there
@@ -281,7 +290,7 @@ namespace Anno.EasyMod.Mods.LocalMods
             // mark deprecated ids as obsolete
             if (sourceMod.Modinfo.DeprecateIds != null)
             {
-                var deprecateIDs = sourceMod.Modinfo.DeprecateIds.SelectMany(x => WhereByModID(x));
+                var deprecateIDs = sourceMod.Modinfo.DeprecateIds.SelectMany(x => WithID(x));
                 foreach (var mod in deprecateIDs)
                     await MakeObsoleteAsync(mod, ModsPath);
             }
@@ -291,11 +300,14 @@ namespace Anno.EasyMod.Mods.LocalMods
             {
                 _mods.Remove(targetMod);
             }
-            var reparsed = _modFactory.GetFromFolder(targetModPath);
-            _mods.Add(reparsed!);
+
+            var final = sourceMod;
+            if (sourceMod.FullModPath != targetModPath)
+                final = _modFactory.GetFromFolder(targetModPath);
+            _mods.Add(final!);
         }
 
-        private (LocalMod?, string) SelectTargetMod(LocalMod sourceMod)
+        private (IMod?, string) SelectTargetMod(IMod sourceMod)
         {
             // select target mod
             var targetMod = FirstByFolderName(sourceMod.FolderName);
@@ -316,7 +328,7 @@ namespace Anno.EasyMod.Mods.LocalMods
             return (targetMod, targetModPath);
         }
 
-        private LocalMod? FirstByFolderName(string folderName, bool ignoreActivation = true)
+        private IMod? FirstByFolderName(string folderName, bool ignoreActivation = true)
         {
             var match = Mods.Where(x => (ignoreActivation ? x.FolderName : x.FullFolderName) == folderName).ToArray();
 
@@ -328,7 +340,7 @@ namespace Anno.EasyMod.Mods.LocalMods
         }
 
 
-        private IEnumerable<LocalMod> WhereByModID(string modID)
+        private IEnumerable<IMod> WithID(string modID)
         {
             return Mods.Where(x => x.Modinfo.ModID == modID);
         }
@@ -338,6 +350,11 @@ namespace Anno.EasyMod.Mods.LocalMods
         public IEnumerator<IMod> GetEnumerator() => Mods.GetEnumerator();
         IEnumerator IEnumerable.GetEnumerator() => Mods.GetEnumerator();
         #endregion
+
+        public IEnumerable<TMod> OfModType<TMod>() where TMod : IMod
+        {
+            return Mods.Cast<TMod>();
+        }
 
     }
 }

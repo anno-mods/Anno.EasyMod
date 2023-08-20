@@ -100,7 +100,8 @@ namespace Anno.EasyMod.Metadata
             return new Modinfo()
             {
                 ModID = mod.Id.ToString(),
-                CreatorName = mod.SubmittedBy?.Username
+                CreatorName = mod.SubmittedBy?.Username,
+                Category = new Localized() { English = "mod.io" }
             };
         }
     }

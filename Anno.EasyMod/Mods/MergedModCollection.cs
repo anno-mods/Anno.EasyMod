@@ -13,7 +13,7 @@ namespace Anno.EasyMod.Mods
     public class MergedModCollection : IModCollection
     {
         private Dictionary<IMod, IModCollection> _collectionLookup;
-        private List<IModCollection> _collections;
+        private IEnumerable<IModCollection> _collections;
 
         public int ActiveMods => _collections.Select(x => x.ActiveMods).Aggregate((x, y) => x + y);
         public int ActiveSizeInMBs => _collections.Select(x => x.ActiveSizeInMBs).Aggregate((x, y) => x + y);
@@ -35,12 +35,15 @@ namespace Anno.EasyMod.Mods
 
         public event NotifyCollectionChangedEventHandler? CollectionChanged = delegate { };
 
-        internal MergedModCollection(
-            Dictionary<IMod, IModCollection> collectionLookup,
-            List<IModCollection> collections)
+        internal MergedModCollection(IEnumerable<IModCollection> collections)
         {
-            _collectionLookup = collectionLookup;
             _collections = collections;
+            _collectionLookup = new();
+            foreach (IModCollection collection in _collections)
+            {
+                foreach (IMod mod in collection)
+                    _collectionLookup.Add(mod, collection);
+            }
 
             StartRedirectingEvents();
         }
@@ -130,13 +133,20 @@ namespace Anno.EasyMod.Mods
         IEnumerator IEnumerable.GetEnumerator() => new MergedModCollectionEnumerator(this);
         public IEnumerator<IMod> GetEnumerator() => new MergedModCollectionEnumerator(this);
 
+        public IEnumerable<TMod> OfModType<TMod>() where TMod : IMod
+        {
+            return Mods.Where(x => x.GetType() == typeof(TMod)).Cast<TMod>();
+        }
+
         private class MergedModCollectionEnumerator : IEnumerator<IMod>
         {
             private IEnumerator<IModCollection> _collectionIterator;
             private IEnumerator<IMod> _currentCollectionModsIterator; 
             private MergedModCollection _collection;
 
+#pragma warning disable CS8618
             public MergedModCollectionEnumerator(MergedModCollection collection)
+#pragma warning restore CS8618 
             {
                 _collection = collection;
                 Reset(); 

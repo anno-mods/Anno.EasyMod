@@ -2,6 +2,6 @@
 {
     public interface IModioModCollectionFactory
     {
-        Task<ModioModCollection> GetAsync();
+        Task<IModCollection> GetAsync();
     }
 }

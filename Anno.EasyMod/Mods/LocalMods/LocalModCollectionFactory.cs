@@ -25,14 +25,14 @@ namespace Anno.EasyMod.Mods.LocalMods
             _modFactory = modFactory;
         }
 
-        public LocalModCollection Get(string Filepath)
+        public IModCollection Get(string Filepath)
         {
             return GetAsync(Filepath).Result;
         }
 
-        public async Task<LocalModCollection> GetAsync(string Filepath)
+        public async Task<IModCollection> GetAsync(string Filepath)
         {
-            List<LocalMod> loadedMods = new();
+            List<IMod> loadedMods = new();
             await Task.Run(() => loadedMods = LoadMods(Filepath));
             var collection = new LocalModCollection(
                 _serviceProvider.GetRequiredService<IModFactory<LocalMod>>(),
@@ -44,9 +44,9 @@ namespace Anno.EasyMod.Mods.LocalMods
             return collection;
         }
 
-        public List<LocalMod> LoadMods(String modsPath)
+        public List<IMod> LoadMods(String modsPath)
         {
-            List<LocalMod> mods = new();
+            List<IMod> mods = new();
             if (Directory.Exists(modsPath))
             {
                 if (AutofixSubfolder)
@@ -54,7 +54,7 @@ namespace Anno.EasyMod.Mods.LocalMods
 
                 var folders = Directory.EnumerateDirectories(modsPath)
                                         .Where(x => !Path.GetFileName(x).StartsWith("."));
-                mods = folders.SelectNoNull(x => _modFactory.GetFromFolder(x, loadImages: true)).ToList();
+                mods = folders.SelectNoNull(x => _modFactory.GetFromFolder(x, loadImages: true) as IMod).ToList();
 
                 int i = 0;
             }

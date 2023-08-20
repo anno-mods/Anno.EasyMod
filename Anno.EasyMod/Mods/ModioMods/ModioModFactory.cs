@@ -45,7 +45,8 @@ namespace Anno.EasyMod.Mods.ModioMods
                 IsActive = true,    //load that value from the accountdata...
                 IsRemoved = false,
                 IsObsolete = false,
-                BasePath = ModioPath
+                BasePath = ModioPath,
+                Image = modDto.Logo?.Thumb1280x720
             };
 
             string[] modinfos = Directory.GetFiles(mod.FullModPath, "modinfo.json", SearchOption.AllDirectories);

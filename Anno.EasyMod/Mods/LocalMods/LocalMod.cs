@@ -1,9 +1,9 @@
-﻿using Anno.EasyMod.Metadata;
+﻿using Anno.EasyMod.Attributes;
+using Anno.EasyMod.Metadata;
 using Anno.EasyMod.Utils;
 using PropertyChanged;
 using System;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
@@ -88,6 +88,10 @@ namespace Anno.EasyMod.Mods.LocalMods
         [DoNotNotify]
         public IEnumerable<IMod> DistinctSubModsIncludingSelf { get => DistinctSubMods.Prepend(this); }
 
+        public IModAttributeCollection Attributes { get; }
+
+        public Uri? Image { get; init; }
+
         #endregion
 
         #region Constructor 
@@ -100,6 +104,7 @@ namespace Anno.EasyMod.Mods.LocalMods
             Modinfo = modinfo;
 
             SubMods = new List<IMod>();
+            Attributes = new ModAttributeCollection(); 
 
             if (VersionEx.TryParse(Modinfo.Version, out var version))
                 Version = version;

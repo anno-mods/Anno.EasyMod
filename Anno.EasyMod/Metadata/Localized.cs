@@ -27,5 +27,10 @@ namespace Anno.EasyMod.Metadata
             English is not null || German is not null ||
             French is not null || Italian is not null || Polish is not null || Russian is not null || Spanish is not null ||
             Japanese is not null || Korean is not null || Taiwanese is not null;
+
+        public override String ToString()
+        {
+            return English ?? String.Empty;
+        }
     }
 }

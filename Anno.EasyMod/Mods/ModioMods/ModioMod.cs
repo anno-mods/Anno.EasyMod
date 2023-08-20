@@ -1,4 +1,5 @@
-﻿using Anno.EasyMod.Metadata;
+﻿using Anno.EasyMod.Attributes;
+using Anno.EasyMod.Metadata;
 using PropertyChanged;
 using System;
 using System.Collections.Generic;
@@ -38,9 +39,14 @@ namespace Anno.EasyMod.Mods.ModioMods
         public bool IsRemoved { get ; set; }
         public bool IsObsolete { get; set ; }
 
+        public IModAttributeCollection Attributes { get; }
+
+        public Uri? Image { get; init; }
+
         internal ModioMod()
         { 
             SubMods = new List<IMod>();
+            Attributes = new ModAttributeCollection();
         }
 
         public void AdaptToCulture(CultureInfo culture)

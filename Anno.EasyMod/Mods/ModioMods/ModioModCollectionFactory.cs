@@ -19,7 +19,7 @@ namespace Anno.EasyMod.Mods.ModioMods
             _client = client;
         }
 
-        public async Task<ModioModCollection> GetAsync()
+        public async Task<IModCollection> GetAsync()
         {
             var mods = await _client.User.GetSubscriptions().ToList();
             var modCollection = new ModioModCollection(_client);
