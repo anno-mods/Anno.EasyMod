@@ -16,8 +16,8 @@ namespace Anno.EasyMod.Mods
         INotifyCollectionChanged
     {
         int ActiveMods { get; }
-        int ActiveSizeInMBs { get; }
-        int InstalledSizeInMBs { get; }
+        long ActiveSize { get; }
+        long InstalledSize { get; }
         IEnumerable<string> ModIDs { get; }
         string ModsPath { get; }
 

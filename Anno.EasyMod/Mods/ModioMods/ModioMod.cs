@@ -19,25 +19,28 @@ namespace Anno.EasyMod.Mods.ModioMods
         public uint ResourceID { get; init; }
 
         public string FullModPath { get => Path.Combine(BasePath, FolderName); }
-        public string BasePath { get; init; }
+        public string BasePath { get; set; }
         public string FolderName { get => ResourceID.ToString(); }
         public string FullFolderName { get => FolderName; }
 
         public string Name { get; init; }
         public string[] Tags { get; init; }
-        public float SizeInMB { get; init; }
+        public long Size { get; init; }
 
         public IList<IMod> SubMods { get; private set; }
         public IEnumerable<IMod> DistinctSubMods { get => SubMods.DistinctBy(x => (x.ModID, x.Version)); }
         public bool HasSubmods { get => SubMods.Count() > 0; }
         public IEnumerable<IMod> DistinctSubModsIncludingSelf { get => DistinctSubMods.Prepend(this); }
 
-        public Version? Version { get; init; }
+        public Version Version { get; init; }
         public Modinfo Modinfo { get; init; }
 
         public bool IsActive { get; set; }
         public bool IsRemoved { get ; set; }
         public bool IsObsolete { get; set ; }
+
+        [DependsOn(nameof(FullModPath))]
+        public bool HasLocalAccess { get => Directory.Exists(FullModPath); }
 
         public IModAttributeCollection Attributes { get; }
 
@@ -56,12 +59,18 @@ namespace Anno.EasyMod.Mods.ModioMods
 
         public bool HasSameContentAs(IMod? Target)
         {
-            throw new NotImplementedException();
+            if (Target is null)
+                return false;
+            return Size != Target.Size;
         }
 
-        public bool IsUpdateOf(IMod? Target)
+        public bool IsUpdateOf(IMod? target)
         {
-            throw new NotImplementedException();
+            if (target is null)
+                return false;
+            if (target.ModID != ModID)
+                return false;
+            return Version > target.Version;
         }
     }
 }

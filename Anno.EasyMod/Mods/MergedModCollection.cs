@@ -1,4 +1,5 @@
 ﻿using Anno.EasyMod.Mods.LocalMods;
+using Anno.EasyMod.Mods.ModioMods;
 using Modio.Models;
 using System;
 using System.Collections;
@@ -16,18 +17,12 @@ namespace Anno.EasyMod.Mods
         private IEnumerable<IModCollection> _collections;
 
         public int ActiveMods => _collections.Select(x => x.ActiveMods).Aggregate((x, y) => x + y);
-        public int ActiveSizeInMBs => _collections.Select(x => x.ActiveSizeInMBs).Aggregate((x, y) => x + y);
-        public int InstalledSizeInMBs => _collections.Select(x => x.InstalledSizeInMBs).Aggregate((x, y) => x + y);
+        public long ActiveSize => _collections.Select(x => x.ActiveSize).Aggregate((x, y) => x + y);
+        public long InstalledSize => _collections.Select(x => x.InstalledSize).Aggregate((x, y) => x + y);
 
-        public IEnumerable<string> ModIDs =>  _collections
-            .Select(x => x.ModIDs)
-            .Aggregate((x, y) => new List<string>(x)
-                .Concat(new List<string>(y)));
+        public IEnumerable<string> ModIDs =>  _collections.SelectMany(x => x.ModIDs);
 
-        public IReadOnlyList<IMod> Mods => _collections
-            .Select(x => x.Mods)
-            .Aggregate((x, y) 
-                    => (new List<IMod>(x).Concat(new List<IMod>(y))).ToList());
+        public IReadOnlyList<IMod> Mods => _collections.SelectMany(x => x.Mods).ToList();
 
         public string ModsPath => throw new NotImplementedException();
 
@@ -35,9 +30,19 @@ namespace Anno.EasyMod.Mods
 
         public event NotifyCollectionChangedEventHandler? CollectionChanged = delegate { };
 
-        internal MergedModCollection(IEnumerable<IModCollection> collections)
+        private Dictionary<Type, IModCollection> _mainCollections;
+
+        internal MergedModCollection(
+            IEnumerable<IModCollection> collections,
+            Dictionary<Type, IModCollection> mainCollections)
         {
+            foreach (var collection in mainCollections.Values)
+            {
+                if (!collections.Contains(collection))
+                    throw new ArgumentException("A Main Collection needs to be contained in Collections. ");
+            }
             _collections = collections;
+            _mainCollections = mainCollections;
             _collectionLookup = new();
             foreach (IModCollection collection in _collections)
             {
@@ -48,35 +53,52 @@ namespace Anno.EasyMod.Mods
             StartRedirectingEvents();
         }
 
+        private void ThrowIfNoCollectionFor(IMod mod)
+        {
+            if (!_collectionLookup.ContainsKey(mod))
+                throw new ArgumentException($"MergedCollection does not contain a Collection for mod: {mod.Name}");
+        }
+
+        private void ThrowIfGroupingNull(IGrouping<IModCollection?, IMod>? context)
+        { 
+            if(context.Key is null)
+                throw new ArgumentException($"MergedCollection does not contain a Collection for mod:" +
+                    $" {String.Join('\n', context.Select(x => x.Name).ToArray())}");
+        }
+
         public void StartRedirectingEvents()
         {
             foreach (var collection in _collections)
             {
                 collection.CollectionChanged += (sender, e) =>
                 {
-                    if (CollectionChanged is not null)
-                        CollectionChanged.Invoke(sender, e);
+                    CollectionChanged?.Invoke(this, e);
                 };
             }
         }
 
         public async Task AddAsync(IEnumerable<IMod> mods, bool allowOldToOverwrite = false, CancellationToken ct = default)
         {
-            var groups = mods.GroupBy(x => _collectionLookup.GetValueOrDefault(x));
+            var groups = mods.GroupBy(x => x.GetType());
 
             foreach (var group in groups)
             {
-                if (group.Key is null)
-                    throw new InvalidOperationException($"MergedCollection does not contain a Collection for type {group.Key}");
-                var collection = group.Key;
-                await collection!.AddAsync(group.ToArray(), allowOldToOverwrite, ct);
+                if(!_mainCollections.TryGetValue(group.Key!, out var collection))
+                    throw new InvalidOperationException($"No MainCollection for Mod Type type {group.Key}");
+                var newMods = group.ToArray();
+                await collection!.AddAsync(newMods, allowOldToOverwrite, ct);
+
+                foreach (IMod mod in newMods)
+                    _collectionLookup.Add(mod, collection);
             }
         }
 
         public async Task AddAsync(IMod mod, bool allowOldToOverwrite = false, CancellationToken ct = default)
         {
-            var collection = _collectionLookup.GetValueOrDefault(mod)!;
-            await collection.AddAsync(mod, allowOldToOverwrite, ct);
+            if (!_mainCollections.TryGetValue(mod.GetType()!, out var collection))
+                throw new InvalidOperationException($"No MainCollection for Mod Type type {mod.GetType()}");
+            await collection.AddAsync(mod, allowOldToOverwrite, ct); 
+            _collectionLookup.Add(mod, collection);
         }
 
         public async Task ChangeActivationAsync(IEnumerable<IMod> mods, bool active, CancellationToken ct = default)
@@ -85,8 +107,8 @@ namespace Anno.EasyMod.Mods
 
             foreach (var group in groups)
             {
-                if (group.Key is null)
-                    throw new InvalidOperationException($"MergedCollection does not contain a Collection for type {group.Key}");
+                ThrowIfGroupingNull(group);
+
                 var collection = group.Key;
                 await collection!.ChangeActivationAsync(group.ToArray(), active, ct);
             }
@@ -94,13 +116,16 @@ namespace Anno.EasyMod.Mods
 
         public async Task ChangeActivationAsync(IMod mod, bool active, CancellationToken ct = default)
         {
-            var type = mod.GetType();
+            ThrowIfNoCollectionFor(mod);
+
             var collection = _collectionLookup.GetValueOrDefault(mod)!;
             await collection.ChangeActivationAsync(mod, active, ct);
         }
 
         public async Task MakeObsoleteAsync(IMod mod, string path, CancellationToken ct = default)
         {
+            ThrowIfNoCollectionFor(mod);
+
             var collection = _collectionLookup.GetValueOrDefault(mod)!;
             await collection.MakeObsoleteAsync(mod, path, ct);
         }
@@ -113,79 +138,34 @@ namespace Anno.EasyMod.Mods
 
         public async Task RemoveAsync(IEnumerable<IMod> mods, CancellationToken ct = default)
         {
-            var groups = mods.GroupBy(x => _collectionLookup.GetValueOrDefault(x));
+            var groups = mods.GroupBy(x => _collectionLookup.GetValueOrDefault(x)).ToArray();
 
             foreach (var group in groups)
             {
-                if (group.Key is null)
-                    throw new InvalidOperationException($"MergedCollection does not contain a Collection for type {group.Key}");
+                ThrowIfGroupingNull(group);
+
                 var collection = group.Key;
                 await collection!.RemoveAsync(group.ToArray(), ct);
             }
+            foreach (var mod in mods)
+                _collectionLookup.Remove(mod);
         }
 
         public async Task RemoveAsync(IMod mod, CancellationToken ct)
         {
+            ThrowIfNoCollectionFor(mod);
+
             var collection = _collectionLookup.GetValueOrDefault(mod)!;
             await collection.RemoveAsync(mod, ct);
+            _collectionLookup.Remove(mod);
         }
 
-        IEnumerator IEnumerable.GetEnumerator() => new MergedModCollectionEnumerator(this);
-        public IEnumerator<IMod> GetEnumerator() => new MergedModCollectionEnumerator(this);
+        IEnumerator IEnumerable.GetEnumerator() => Mods.GetEnumerator();
+        public IEnumerator<IMod> GetEnumerator() => Mods.GetEnumerator();
 
         public IEnumerable<TMod> OfModType<TMod>() where TMod : IMod
         {
             return Mods.Where(x => x.GetType() == typeof(TMod)).Cast<TMod>();
         }
-
-        private class MergedModCollectionEnumerator : IEnumerator<IMod>
-        {
-            private IEnumerator<IModCollection> _collectionIterator;
-            private IEnumerator<IMod> _currentCollectionModsIterator; 
-            private MergedModCollection _collection;
-
-#pragma warning disable CS8618
-            public MergedModCollectionEnumerator(MergedModCollection collection)
-#pragma warning restore CS8618 
-            {
-                _collection = collection;
-                Reset(); 
-            }
-
-            public IMod Current { get; private set; }
-            object IEnumerator.Current { get => Current; }
-
-            public void Dispose() {
-                _collectionIterator.Dispose();
-                _currentCollectionModsIterator.Dispose(); 
-            }
-
-            public bool MoveNext()
-            {
-                if (_currentCollectionModsIterator.MoveNext())
-                { 
-                    Current = _currentCollectionModsIterator.Current;
-                    return true; 
-                }
-
-                //we are done with the current collection. try to advance. If we are done with the collection iterator, we're done entirely. 
-                if (!_collectionIterator.MoveNext())
-                    return false; 
-                //if there is still another collection at the end, we are starting to enumerate from there.
-                _currentCollectionModsIterator = _collectionIterator.Current.GetEnumerator();
-                return MoveNext(); 
-            }
-
-            public void Reset()
-            {
-                _collectionIterator = _collection._collections.GetEnumerator();
-                //go to the first collection. Imagine StartPosition as Collection 0, Position -1;
-                _collectionIterator.MoveNext();
-                _currentCollectionModsIterator = _collectionIterator.Current.GetEnumerator(); 
-            }
-        }
     }
-
-
-
 }

@@ -18,22 +18,23 @@ namespace Anno.EasyMod.Mods
         public bool IsActiveAndValid { get => IsActive && !IsRemoved; }
         public bool IsRemoved { get; internal set; }
         public bool IsObsolete { get; internal set; }
+        public bool HasLocalAccess { get; }
 
         public string FullModPath { get; }
-        public string BasePath { get; }
+        public string BasePath { get; internal set; }
         public string FolderName { get; }
         public string FullFolderName { get; }
 
         public string Name { get; }
         public string[] Tags { get; }
-        public float SizeInMB { get; }
+        public long Size { get; }
 
         public IList<IMod> SubMods { get; }
         public IEnumerable<IMod> DistinctSubMods { get; }
         public IEnumerable<IMod> DistinctSubModsIncludingSelf { get; }
         public bool HasSubmods { get; }
 
-        public Version? Version { get; }
+        public Version Version { get; }
         public Modinfo Modinfo { get; }
 
         bool HasSameContentAs(IMod? Target);
@@ -43,10 +44,15 @@ namespace Anno.EasyMod.Mods
 
         public IEnumerable<string>? EnumerateFiles(string filter = "*")
         { 
-            var files = Directory.EnumerateFiles(FullModPath, filter, SearchOption.AllDirectories);
+            if(!HasLocalAccess)
+                return Enumerable.Empty<string>();
+
+            var files = Directory.EnumerateFiles(FullModPath, filter, SearchOption.AllDirectories).ToArray();
             if (!HasSubmods || files is null)
                 return files;
-            return files.Where(x => !DistinctSubMods.Any(y => y.EnumerateFiles()?.Contains(x) ?? false));
+            var subModPaths = DistinctSubMods
+                .Select(x => x.FullModPath).ToArray();
+            return files.Where(x => !subModPaths.Any(y => x.StartsWith(y)));
         }
 
         public string[]? GetFiles(string filter = "*") => EnumerateFiles(filter)?.ToArray();

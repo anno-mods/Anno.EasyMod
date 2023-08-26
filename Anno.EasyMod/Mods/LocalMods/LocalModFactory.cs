@@ -38,14 +38,18 @@ namespace Anno.EasyMod.Mods.LocalMods
             {
                 modinfo = _modinfoLoader.GetDummy(folderName);
             }
+            if (!VersionEx.TryParse(modinfo?.Version, out var version))
+            {
+                version = Version.Parse("1.0.0");
+            }
 
             var mod = new LocalMod(
                 isActive,
                 folderName,
                 modinfo!,
                 basePath)
-            {
-                Image = new Uri(Path.Combine(modFolderPath, "banner.jpg"))
+            { 
+                Version = version!
             };
 
             string[] modinfos = Directory.GetFiles(Path.Combine(basePath, folder), "modinfo.json", SearchOption.AllDirectories);

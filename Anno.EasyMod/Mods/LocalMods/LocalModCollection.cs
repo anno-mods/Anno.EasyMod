@@ -17,8 +17,8 @@ namespace Anno.EasyMod.Mods.LocalMods
     {
         #region UI related
         public int ActiveMods { get; private set; }
-        public int ActiveSizeInMBs { get; private set; }
-        public int InstalledSizeInMBs { get; private set; }
+        public long ActiveSize { get; private set; }
+        public long InstalledSize { get; private set; }
         #endregion
 
         public event NotifyCollectionChangedEventHandler? CollectionChanged = delegate { };
@@ -146,8 +146,8 @@ namespace Anno.EasyMod.Mods.LocalMods
             if (removedModCount > 0 || ActiveMods != newActiveCount)
             {
                 ActiveMods = newActiveCount;
-                ActiveSizeInMBs = (int)Math.Round(Mods.Sum(x => x.IsActive ? x.SizeInMB : 0));
-                InstalledSizeInMBs = (int)Math.Round(Mods.Sum(x => x.SizeInMB));
+                ActiveSize = Mods.Sum(x => x.IsActive ? x.Size : 0);
+                InstalledSize = Mods.Sum(x => x.Size);
                 _logger.LogInformation($"{ActiveMods} active mods. {Mods.Count} total found.");
 
                 // trigger changed events for activation/deactivation
@@ -223,22 +223,25 @@ namespace Anno.EasyMod.Mods.LocalMods
         public async Task AddAsync(IEnumerable<IMod> source, bool allowOldToOverwrite, CancellationToken ct = default)
         {
             Directory.CreateDirectory(ModsPath);
+            List<IMod> changed = new(); 
 
             try
             {
                 foreach (var sourceMod in source)
                 {
-                    await Task.Run(
+                    var mod = await Task.Run(
                         async () => await AddAsync_NoEvents(sourceMod, allowOldToOverwrite, ct),
                         ct
                     );
+                    if (mod is not null)
+                        changed.Add(mod);
                 }
             }
             catch (Exception e)
             {
                 _logger.LogError($"Move Error: {e.Message}");
             }
-            CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, source.ToList()));
+            CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, changed));
         }
 
         public async Task AddAsync(IMod sourceMod, bool allowOldToOverwrite, CancellationToken ct = default)
@@ -260,14 +263,14 @@ namespace Anno.EasyMod.Mods.LocalMods
             CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, sourceMod));
         }
 
-        private async Task AddAsync_NoEvents(IMod sourceMod, bool allowOldToOverwrite, CancellationToken ct = default)
+        private async Task<IMod> AddAsync_NoEvents(IMod sourceMod, bool allowOldToOverwrite, CancellationToken ct = default)
         {
             var (targetMod, targetModPath) = SelectTargetMod(sourceMod);
 
             if (!allowOldToOverwrite && !sourceMod.IsUpdateOf(targetMod))
             {
                 _logger.LogInformation($"Skip update of {sourceMod.FolderName}. Source version: {sourceMod.Modinfo.Version}, target version: {targetMod?.Modinfo.Version}");
-                return;
+                return targetMod;
             }
 
             // do it!
@@ -302,9 +305,9 @@ namespace Anno.EasyMod.Mods.LocalMods
             }
 
             var final = sourceMod;
-            if (sourceMod.FullModPath != targetModPath)
-                final = _modFactory.GetFromFolder(targetModPath);
-            _mods.Add(final!);
+            sourceMod.BasePath = ModsPath;
+            _mods.Add(sourceMod);
+            return sourceMod;
         }
 
         private (IMod?, string) SelectTargetMod(IMod sourceMod)

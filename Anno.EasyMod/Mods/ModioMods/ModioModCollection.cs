@@ -1,21 +1,13 @@
-﻿using Anno.EasyMod.Mods.LocalMods;
-using Modio;
-using Modio.Models;
-using System;
-using System.Collections;
-using System.Collections.Generic;
+﻿using System.Collections;
 using System.Collections.Specialized;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Anno.EasyMod.Mods.ModioMods
 {
     public class ModioModCollection : IModCollection
     {
         public int ActiveMods { get => Mods.Count; }
-        public int ActiveSizeInMBs { get => (int)Mods.Select(x => x.SizeInMB).Aggregate((x, y) => x + y); }
-        public int InstalledSizeInMBs { get => ActiveSizeInMBs;}
+        public long ActiveSize { get => (int)Mods.Select(x => x.Size).Aggregate((x, y) => x + y); }
+        public long InstalledSize { get => ActiveSize;}
 
         public IEnumerable<string> ModIDs => Mods.Select(x => x.ModID);
         public IReadOnlyList<IMod> Mods { get => _mods; }
@@ -108,11 +100,11 @@ namespace Anno.EasyMod.Mods.ModioMods
             CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Remove, new[]{ mod }));
         }
 
-        public async Task RemoveAsync_NoEvents(IMod mod, CancellationToken ct)
+        private async Task RemoveAsync_NoEvents(IMod mod, CancellationToken ct)
         {
-            ThrowIfNotModioMod(mod);
             var modioMod = mod as ModioMod;
             await _client.Games[4169].Mods.Unsubscribe(modioMod!.ResourceID);
+            _mods.Remove(modioMod);
         }
 
         IEnumerator IEnumerable.GetEnumerator() => Mods.GetEnumerator();

@@ -24,11 +24,11 @@ namespace Anno.EasyMod.Mods.LocalMods
         public Modinfo Modinfo { get; private init; }
 
         [DoNotNotify]
-        public Version? Version { get; private init; }
+        public Version Version { get; init; }
         public bool HasModinfo => Modinfo is not null;
 
         [DoNotNotify]
-        public float SizeInMB { get; private set; }
+        public long Size { get; private set; }
 
         public string Name { get => Modinfo.ModName?.English!; }
 
@@ -39,6 +39,7 @@ namespace Anno.EasyMod.Mods.LocalMods
         /// <summary>
         /// Folder name including activation "-".
         /// </summary>
+        [DependsOn(nameof(IsActive), nameof(FolderName))]
         public string FullFolderName => (IsActive ? "" : "-") + FolderName;
 
         /// <summary>
@@ -54,6 +55,7 @@ namespace Anno.EasyMod.Mods.LocalMods
         /// <summary>
         /// "-" activation and valid.
         /// </summary>
+        [DependsOn(nameof(IsActive), nameof(IsRemoved))]
         public bool IsActiveAndValid => IsActive && !IsRemoved;
 
         /// <summary>
@@ -69,10 +71,10 @@ namespace Anno.EasyMod.Mods.LocalMods
         /// <summary>
         /// Full path to mod folder.
         /// </summary>
+        [DependsOn(nameof(BasePath))]
         public string FullModPath => Path.Combine(BasePath, FullFolderName);
 
-        [DoNotNotify]
-        public string BasePath { get; private set; } // TODO use ModDirectory as parent and retrieve it from there as soon as it's not a global manager anymore
+        public string BasePath { get; set; }
         #endregion
 
         #region SubMods
@@ -90,7 +92,11 @@ namespace Anno.EasyMod.Mods.LocalMods
 
         public IModAttributeCollection Attributes { get; }
 
-        public Uri? Image { get; init; }
+        [DependsOn(nameof(BasePath))]
+        public Uri? Image { get => new Uri(Path.Combine(FullModPath, "banner.jpg")); }
+
+        [DependsOn(nameof(IsRemoved))]
+        public bool HasLocalAccess { get => !IsRemoved; }
 
         #endregion
 
@@ -106,12 +112,9 @@ namespace Anno.EasyMod.Mods.LocalMods
             SubMods = new List<IMod>();
             Attributes = new ModAttributeCollection(); 
 
-            if (VersionEx.TryParse(Modinfo.Version, out var version))
-                Version = version;
-
             //TODO move to file access
             var info = new DirectoryInfo(FullModPath);
-            SizeInMB = (float)Math.Round((decimal)info.EnumerateFiles("*", SearchOption.AllDirectories).Sum(x => x.Length) / 1024 / 1024, 1);
+            Size = info.EnumerateFiles("*", SearchOption.AllDirectories).Sum(x => x.Length);
         }
 
 
@@ -119,7 +122,7 @@ namespace Anno.EasyMod.Mods.LocalMods
         {
             if (target is null || target.IsRemoved)
                 return true;
-            if (target.Modinfo.ModID != Modinfo.ModID)
+            if (target.ModID != ModID)
                 return false;
 
             // compare content when unversioned
@@ -142,7 +145,7 @@ namespace Anno.EasyMod.Mods.LocalMods
         {
             if (target is null) return false;
 
-            if (Modinfo.Version != target.Modinfo.Version)
+            if (Version != target.Version)
                 return false;
 
             var dirA = new DirectoryInfo(FullModPath);

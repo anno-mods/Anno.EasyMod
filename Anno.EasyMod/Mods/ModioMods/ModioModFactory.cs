@@ -38,8 +38,8 @@ namespace Anno.EasyMod.Mods.ModioMods
                 ResourceID = modDto.Id,
                 Name = modDto.Name ?? String.Empty,
                 Tags = modDto.Tags.Where(x => x.Name is not null).Select(x => x.Name!).ToArray(),
-                SizeInMB = modDto.Modfile?.FileSize ?? 0,
-                Version = version,
+                Size = modDto.Modfile?.FileSize ?? 0,
+                Version = version!,
                 Modinfo = modinfo,
 
                 IsActive = true,    //load that value from the accountdata...
@@ -48,6 +48,9 @@ namespace Anno.EasyMod.Mods.ModioMods
                 BasePath = ModioPath,
                 Image = modDto.Logo?.Thumb1280x720
             };
+
+            if (!mod.HasLocalAccess)
+                return mod;
 
             string[] modinfos = Directory.GetFiles(mod.FullModPath, "modinfo.json", SearchOption.AllDirectories);
 

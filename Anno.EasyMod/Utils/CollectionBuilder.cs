@@ -2,11 +2,6 @@
 using Anno.EasyMod.Mods.LocalMods;
 using Anno.EasyMod.Mods.ModioMods;
 using Microsoft.VisualBasic.FileIO;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Anno.EasyMod.Utils
 {
@@ -15,7 +10,8 @@ namespace Anno.EasyMod.Utils
         private ILocalModCollectionFactory _localCollectionFactory; 
         private IModioModCollectionFactory? _modioCollectionFactory;
 
-        private List<Task<IModCollection>> _buildTasks; 
+        private List<Task<IModCollection>> _buildTasks;
+        private Dictionary<Type, Task<IModCollection>> _mainCollections;
 
         public CollectionBuilder(
             ILocalModCollectionFactory localModFactory, 
@@ -24,26 +20,46 @@ namespace Anno.EasyMod.Utils
             _localCollectionFactory = localModFactory;
             _modioCollectionFactory = modCollectionFactory;
             _buildTasks = new();
+            _mainCollections = new(); 
         }
 
-        public CollectionBuilder AddDocumentsFolder()
+        public CollectionBuilder AddDocumentsFolder(bool asMainLocal = false)
         {
             var documentsFolderLocation = Path.Combine(SpecialDirectories.MyDocuments, "Anno 1800", "mods");
-            _buildTasks.Add(_localCollectionFactory.GetAsync(documentsFolderLocation));
+            var task = _localCollectionFactory.GetAsync(documentsFolderLocation);
+            _buildTasks.Add(task);
+            if (asMainLocal)
+                ConfigureMainLocal(task);
             return this;
         }
 
-        public CollectionBuilder AddFromLocalSource(String modsLocation) 
+        public CollectionBuilder AddFromLocalSource(String modsLocation, bool asMainLocal = true) 
         {
-            _buildTasks.Add(_localCollectionFactory.GetAsync(modsLocation));
+            var task = _localCollectionFactory.GetAsync(modsLocation);
+            _buildTasks.Add(task);
+            if (asMainLocal)
+                ConfigureMainLocal(task);
             return this; 
         }
 
-        public CollectionBuilder AddModio()
+        private void ConfigureMainLocal(Task<IModCollection> local)
+        {
+            if (_mainCollections.ContainsKey(typeof(LocalMod)))
+                throw new InvalidOperationException("A main Local collection has already been added");
+            _mainCollections.Add(typeof(LocalMod), local);
+        }
+
+        public CollectionBuilder AddModio(bool asMainModio = true)
         {
             if (_modioCollectionFactory is null)
                 throw new NotSupportedException("Modio was not configured. To add modio to your collections, please use ConfigureModio on your servicecollection");
-            _buildTasks.Add(_modioCollectionFactory.GetAsync());
+            if (_mainCollections.ContainsKey(typeof(ModioMod)) && asMainModio)
+                throw new InvalidOperationException("A main Modio collection has already been added");
+
+            var task = _modioCollectionFactory.GetAsync();
+            _buildTasks.Add(task);
+            if(asMainModio)
+                _mainCollections.Add(typeof(ModioMod), task);
             return this;
         }
 
@@ -52,7 +68,13 @@ namespace Anno.EasyMod.Utils
             var completed = await Task.WhenAll(_buildTasks);
             if (completed.Count() == 1)
                 return completed.First();
-            return new MergedModCollection(completed);
+
+            var pairs = await Task.WhenAll(
+                _mainCollections
+                    .Select(async x => new { Key = x.Key, Value = await x.Value })
+                );
+            var dict = pairs.ToDictionary(x => x.Key, x => x.Value);
+            return new MergedModCollection(completed, dict);
         }
     }
 }

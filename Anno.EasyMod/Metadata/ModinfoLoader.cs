@@ -92,7 +92,14 @@ namespace Anno.EasyMod.Metadata
 
         public Modinfo GetDummy(string name)
         {
-            throw new NotImplementedException();
+            return new Modinfo()
+            {
+                Version = "1.0.0",
+                ModName = new Localized()
+                {
+                    English = name,
+                }
+            };
         }
 
         public Modinfo GetModio(Modio.Models.Mod mod)
@@ -101,7 +108,15 @@ namespace Anno.EasyMod.Metadata
             {
                 ModID = mod.Id.ToString(),
                 CreatorName = mod.SubmittedBy?.Username,
-                Category = new Localized() { English = "mod.io" }
+                Category = new Localized() 
+                {
+                    English = "mod.io" 
+                },
+                Description = new Localized() 
+                {
+                    English = mod.DescriptionPlaintext
+                }
+                
             };
         }
     }
