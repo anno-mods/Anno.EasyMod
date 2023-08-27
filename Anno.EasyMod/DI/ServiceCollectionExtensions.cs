@@ -1,4 +1,5 @@
 ﻿using Anno.EasyMod.Metadata;
+using Anno.EasyMod.ModioWrapper;
 using Anno.EasyMod.Mods;
 using Anno.EasyMod.Mods.LocalMods;
 using Anno.EasyMod.Mods.ModioMods;
@@ -21,11 +22,12 @@ namespace Anno.EasyMod.DI
                 ));
         }
 
-        public static void ConfigureModio(this IServiceCollection services, Modio.Client client)
+        public static void ConfigureModio(this IServiceCollection services, IModioAuthenticator authenticator)
         {
             services.AddScoped<IModioModFactory, ModioModFactory>();
             services.AddScoped<IModioModCollectionFactory, ModioModCollectionFactory>();
-            services.AddSingleton<Modio.Client>(client);
+            services.AddSingleton<IModioAuthenticator>(authenticator);
+            services.AddSingleton<IModioClientProvider, ModioClientProvider>();
         }
     }
 }

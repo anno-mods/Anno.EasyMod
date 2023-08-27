@@ -1,4 +1,5 @@
-﻿using System.Collections;
+﻿using Anno.EasyMod.ModioWrapper;
+using System.Collections;
 using System.Collections.Specialized;
 
 namespace Anno.EasyMod.Mods.ModioMods
@@ -16,11 +17,11 @@ namespace Anno.EasyMod.Mods.ModioMods
         public string ModsPath => throw new NotImplementedException();
         public int Count { get => Mods.Count; }
 
-        private Modio.Client _client; 
+        private IModioClientProvider _clientProvider; 
 
-        public ModioModCollection(Modio.Client client) 
+        public ModioModCollection(IModioClientProvider clientProvider) 
         {
-            _client = client; 
+            _clientProvider = clientProvider; 
             _mods = new List<IMod>();
         }
 
@@ -28,6 +29,12 @@ namespace Anno.EasyMod.Mods.ModioMods
         {
             if (mod is not ModioMod)
                 throw new ArgumentException($"Invalid Type for LocalModCollection. Expected: {typeof(ModioMod).FullName}. Actual: {mod.GetType().FullName}");
+        }
+
+        private void ThrowIfUnauthenticated()
+        {
+            if (!_clientProvider.IsAuthenticated())
+                throw new InvalidOperationException("Modio Client is not authenticated!");
         }
 
         public event NotifyCollectionChangedEventHandler? CollectionChanged = delegate { };
@@ -51,10 +58,12 @@ namespace Anno.EasyMod.Mods.ModioMods
 
         private async Task AddAsync_NoEvents(IMod mod, bool allowOldToOverwrite = false, CancellationToken ct = default)
         {
+            ThrowIfUnauthenticated(); 
+
             var modioMod = mod as ModioMod;
             if (Mods.Contains(mod))
                 return;
-            await _client.Games[4169].Mods.Subscribe(modioMod!.ResourceID);
+            await _clientProvider.Client!.Games[4169].Mods.Subscribe(modioMod!.ResourceID);
             _mods.Add(mod);
         }
 
@@ -102,8 +111,10 @@ namespace Anno.EasyMod.Mods.ModioMods
 
         private async Task RemoveAsync_NoEvents(IMod mod, CancellationToken ct)
         {
+            ThrowIfUnauthenticated();
+
             var modioMod = mod as ModioMod;
-            await _client.Games[4169].Mods.Unsubscribe(modioMod!.ResourceID);
+            await _clientProvider.Client!.Games[4169].Mods.Unsubscribe(modioMod!.ResourceID);
             _mods.Remove(modioMod);
         }
 
