@@ -1,4 +1,5 @@
-﻿using Anno.EasyMod.Metadata;
+﻿using Anno.EasyMod.Accountdata;
+using Anno.EasyMod.Metadata;
 using Anno.EasyMod.ModioWrapper;
 using Anno.EasyMod.Mods;
 using Anno.EasyMod.Mods.LocalMods;
@@ -28,6 +29,7 @@ namespace Anno.EasyMod.DI
             services.AddScoped<IModioModCollectionFactory, ModioModCollectionFactory>();
             services.AddSingleton<IModioAuthenticator>(authenticator);
             services.AddSingleton<IModioClientProvider, ModioClientProvider>();
+            services.AddSingleton<AccountdataAccess>();
         }
     }
 }

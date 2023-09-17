@@ -1,4 +1,6 @@
-﻿using Anno.EasyMod.ModioWrapper;
+﻿using Anno.EasyMod.Accountdata;
+using Anno.EasyMod.ModioWrapper;
+using Modio.Models;
 using System.Collections;
 using System.Collections.Specialized;
 
@@ -17,11 +19,13 @@ namespace Anno.EasyMod.Mods.ModioMods
         public string ModsPath => throw new NotImplementedException();
         public int Count { get => Mods.Count; }
 
-        private IModioClientProvider _clientProvider; 
+        private IModioClientProvider _clientProvider;
+        private AccountdataAccess _access;
 
-        public ModioModCollection(IModioClientProvider clientProvider) 
+        public ModioModCollection(IModioClientProvider clientProvider, AccountdataAccess access) 
         {
-            _clientProvider = clientProvider; 
+            _clientProvider = clientProvider;
+            _access = access;
             _mods = new List<IMod>();
         }
 
@@ -68,14 +72,19 @@ namespace Anno.EasyMod.Mods.ModioMods
         }
 
         //We need access to users accountdata for this :( happy filedb patching
-        public Task ChangeActivationAsync(IEnumerable<IMod> mods, bool active, CancellationToken ct = default)
+        public async Task ChangeActivationAsync(IEnumerable<IMod> mods, bool active, CancellationToken ct = default)
         {
-            throw new NotImplementedException();
+            var ids = mods.Select(x => int.Parse(x.ModID));
+            if (active)
+                _access.AddModioActiveMod(ids);
+            else
+                _access.RemoveModioActiveMod(ids);
         }
 
-        public Task ChangeActivationAsync(IMod mod, bool active, CancellationToken ct = default)
+        public async Task ChangeActivationAsync(IMod mod, bool active, CancellationToken ct = default)
         {
-            throw new NotImplementedException();
+            var mods = new IMod[] { mod };
+            await ChangeActivationAsync(mods, active, ct);
         }
 
         public async Task MakeObsoleteAsync(IMod mod, string path, CancellationToken ct = default)

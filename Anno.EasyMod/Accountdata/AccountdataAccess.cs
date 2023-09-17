@@ -1,47 +1,134 @@
-﻿namespace Anno.EasyMod.Accountdata
+﻿using FileDBSerializing;
+using Microsoft.VisualBasic.FileIO;
+using FileDBSerializing.LookUps;
+using System.Text;
+using System.Security.Cryptography.X509Certificates;
+using FileDBSerializing.ObjectSerializer;
+
+namespace Anno.EasyMod.Accountdata
 {
-    public class AccountdataAccess
+
+    public class AccountdataAccess : IAccountdataAccess
     {
+        IFileDBDocument? accountdata;
+        string AccountdataLocation;
+
+        Attrib _activeModsNode;
+        Tag _disabledLocalModsNode;
+
+        public AccountdataAccess()
+        {
+            var accountsLocation = Path.Combine(SpecialDirectories.MyDocuments, "Anno 1800", "accounts");
+            var directory = Directory.EnumerateDirectories(accountsLocation).FirstOrDefault();
+            AccountdataLocation = Path.Combine(directory, "accountdata.a7s");
+        }
+
+        private void ThrowIfNotInitialized()
+        {
+            if (accountdata is null)
+                throw new InvalidOperationException("No Accountdata loaded!");
+        }
+
         public IEnumerable<String> GetDisabledLocalMods()
         {
-            throw new NotImplementedException();
+            ThrowIfNotInitialized();
+
+            var nodes = _disabledLocalModsNode
+                .Children
+                .Where(x => x is Attrib)
+                .Select(x => new UTF8Encoding().GetString((x as Attrib)!.Content));
+            return nodes;
         }
 
         public IEnumerable<int> GetActiveMods()
         {
-            throw new NotImplementedException();
+            ThrowIfNotInitialized();
+
+            var activeMods = _activeModsNode.Content
+                .Chunk(sizeof(int))
+                .Select(x => BitConverter.ToInt32(x));
+            return activeMods ?? Enumerable.Empty<int>();
         }
 
-        public void ChangeActivationStatus(string modId, bool active, bool asLocal = true)
+        public void RemoveLocallyDisabledMod(string modId)
         {
-            throw new NotImplementedException();
+            var bytes = new UTF8Encoding().GetBytes(modId);
+            var toRemove = _disabledLocalModsNode.SelectNodes("None", x => (x as Attrib).Content.SequenceEqual(bytes));
+            foreach (var item in toRemove)
+                _disabledLocalModsNode.Children.Remove(item);
         }
 
-        private void RemoveLocallyDisabledMod(string modId) 
+        public void AddLocallyDisabledMod(string modId)
         {
-            throw new NotImplementedException();
+            var bytes = new UTF8Encoding().GetBytes(modId);
+            Attrib attrib = accountdata.AddAttrib("None");
+            attrib.Content = bytes;
+            _disabledLocalModsNode.AddChild(attrib);
         }
 
-        private void AddLocallyDisabledMod(string modId)
+        private byte[] BuildByteArray(int[] array)
         {
-            throw new NotImplementedException();
+            var arrayInstance = array as Array;
+            using (MemoryStream ContentStream = new MemoryStream())
+            {
+                for (int i = 0; i < arrayInstance.Length; i++)
+                {
+                    var singleVal = arrayInstance.GetValue(i);
+                    ContentStream.Write(PrimitiveTypeConverter.GetBytes(singleVal));
+                }
+                return ContentStream.ToArray();
+            }
         }
 
-        private void AddModioActiveMod(string modID)
+        public void AddModioActiveMod(IEnumerable<int> modIDs)
         {
-            throw new NotImplementedException();
+            var activeMods = _activeModsNode.Content
+                .Chunk(sizeof(int))
+                .Select(x => BitConverter.ToInt32(x))
+                .ToList();
+            foreach (var modID in modIDs)
+            {
+                if (activeMods.Contains(modID))
+                    continue;
+                activeMods.Add(modID);
+            }
+
+            _activeModsNode.Content = BuildByteArray(activeMods.ToArray());
         }
 
-        private void RemoveModioActiveMod(string modId)
+        public void RemoveModioActiveMod(IEnumerable<int> modIDs)
         {
-            throw new NotImplementedException();
+            var activeMods = _activeModsNode.Content
+                .Chunk(sizeof(int))
+                .Select(x => BitConverter.ToInt32(x))
+                .ToList();
+
+            foreach (var modID in modIDs)
+                activeMods.Remove(modID);
+            _activeModsNode.Content = BuildByteArray(activeMods.ToArray());
         }
 
         public void Save()
         {
-            throw new NotImplementedException();
+            if (accountdata is null)
+                return;
+            DocumentWriter writer = new DocumentWriter();
+            using (var fs = File.Create(AccountdataLocation))
+                writer.WriteFileDBToStream(accountdata, fs);
         }
 
+        public void Load()
+        {
+            using (var fs = File.OpenRead(AccountdataLocation))
+            {
+                var version = VersionDetector.GetCompressionVersion(fs);
+                DocumentParser loader = new DocumentParser(version);
+                accountdata = loader.LoadFileDBDocument(fs);
+
+                _activeModsNode = accountdata.SelectSingleNode("GameManager/ModManager/ActiveMods", x => x is Attrib) as Attrib;
+                _disabledLocalModsNode = accountdata.SelectSingleNode("GameManager/ModManager/DisabledLocalMods", x => x is Tag) as Tag;
+            }
+        }
 
     }
 }
