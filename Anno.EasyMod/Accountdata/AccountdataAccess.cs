@@ -1,16 +1,17 @@
-﻿using FileDBSerializing;
-using Microsoft.VisualBasic.FileIO;
-using FileDBSerializing.LookUps;
+﻿using Microsoft.VisualBasic.FileIO;
 using System.Text;
 using System.Security.Cryptography.X509Certificates;
-using FileDBSerializing.ObjectSerializer;
+using AnnoMods.BBDom;
+using AnnoMods.BBDom.LookUps;
+using AnnoMods.BBDom.ObjectSerializer;
+using AnnoMods.BBDom.IO;
 
 namespace Anno.EasyMod.Accountdata
 {
 
     public class AccountdataAccess : IAccountdataAccess
     {
-        IFileDBDocument? accountdata;
+        BBDocument? accountdata;
         string AccountdataLocation;
 
         Attrib _activeModsNode;
@@ -61,7 +62,7 @@ namespace Anno.EasyMod.Accountdata
         public void AddLocallyDisabledMod(string modId)
         {
             var bytes = new UTF8Encoding().GetBytes(modId);
-            Attrib attrib = accountdata.AddAttrib("None");
+            Attrib attrib = accountdata.CreateAttrib("None");
             attrib.Content = bytes;
             _disabledLocalModsNode.AddChild(attrib);
         }
@@ -112,9 +113,9 @@ namespace Anno.EasyMod.Accountdata
         {
             if (accountdata is null)
                 return;
-            DocumentWriter writer = new DocumentWriter();
+
             using (var fs = File.Create(AccountdataLocation))
-                writer.WriteFileDBToStream(accountdata, fs);
+                accountdata.WriteToStream(fs);
         }
 
         public void Load()
@@ -122,8 +123,7 @@ namespace Anno.EasyMod.Accountdata
             using (var fs = File.OpenRead(AccountdataLocation))
             {
                 var version = VersionDetector.GetCompressionVersion(fs);
-                DocumentParser loader = new DocumentParser(version);
-                accountdata = loader.LoadFileDBDocument(fs);
+                accountdata = BBDocument.LoadStream(fs);
 
                 _activeModsNode = accountdata.SelectSingleNode("GameManager/ModManager/ActiveMods", x => x is Attrib) as Attrib;
                 _disabledLocalModsNode = accountdata.SelectSingleNode("GameManager/ModManager/DisabledLocalMods", x => x is Tag) as Tag;
